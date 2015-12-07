@@ -1,5 +1,7 @@
 import pickle
 
+import msgpack
+
 from huey.exceptions import QueueException
 
 
@@ -44,6 +46,16 @@ class TaskRegistry(object):
 
     def get_message_for_task(self, task):
         """Convert a task object to a message for storage in the queue"""
+        
+        return msgpack.packb((
+            task.task_id,
+            self.task_to_string(type(task)),
+            task.execute_time,
+            task.retries,
+            task.retry_delay,
+            task.get_data(),
+        ))
+        """
         return pickle.dumps((
             task.task_id,
             self.task_to_string(type(task)),
@@ -52,7 +64,8 @@ class TaskRegistry(object):
             task.retry_delay,
             task.get_data(),
         ))
-
+        """
+        
     def get_task_class(self, klass_str):
         klass = self._registry.get(klass_str)
 
@@ -64,7 +77,8 @@ class TaskRegistry(object):
     def get_task_for_message(self, msg):
         """Convert a message from the queue into a task"""
         # parse out the pieces from the enqueued message
-        raw = pickle.loads(msg)
+        raw = msgpack.unpackb(msg)
+        #raw = pickle.loads(msg)
         task_id, klass_str, execute_time, retries, delay, data = raw
 
         klass = self.get_task_class(klass_str)

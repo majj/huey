@@ -1,6 +1,9 @@
 import datetime
 import json
 import pickle
+
+import msgpack
+
 import re
 import time
 import traceback
@@ -247,15 +250,17 @@ class Huey(object):
             return
 
         if self.result_store and not isinstance(task, PeriodicQueueTask):
-            self._put(task.task_id, pickle.dumps(result))
+            self._put(task.task_id, msgpack.packb(result))
+            #self._put(task.task_id, pickle.dumps(result))
 
         return result
 
     def revoke(self, task, revoke_until=None, revoke_once=False):
         if not self.result_store:
             raise QueueException('A DataStore is required to revoke task')
-
-        serialized = pickle.dumps((revoke_until, revoke_once))
+            
+        serialized = msgpack.packb((revoke_until, revoke_once)) 
+        #serialized = pickle.dumps((revoke_until, revoke_once))                   
         self._put(task.revoke_id, serialized)
 
     def restore(self, task):
@@ -267,7 +272,7 @@ class Huey(object):
         res = self._get(task.revoke_id, peek=True)
         if res is EmptyData:
             return False
-        revoke_until, revoke_once = pickle.loads(res)
+        revoke_until, revoke_once = msgpack.unpackb(res) #pickle.loads(res)
         if revoke_once:
             # This task *was* revoked for one run, but now it should be
             # restored to normal execution.
@@ -306,7 +311,8 @@ class AsyncData(object):
             res = self.huey._get(task_id)
 
             if res is not EmptyData:
-                self._result = pickle.loads(res)
+                self._result = msgpack.unpackb(res)
+                #self._result = pickle.loads(res)
                 return self._result
             else:
                 return res
